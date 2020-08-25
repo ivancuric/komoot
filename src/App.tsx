@@ -1,5 +1,5 @@
 import produce from "immer";
-import L, { Marker } from "leaflet";
+import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import { nanoid } from "nanoid";
 import React, { useEffect, useRef, useState } from "react";
@@ -8,10 +8,6 @@ import "./App.scss";
 interface MarkerWithId {
   id: string;
   instance: L.Marker;
-}
-
-interface State {
-  markers: MarkerWithId[];
 }
 
 // fix for the default icon
@@ -47,12 +43,18 @@ function App() {
 
       const marker: MarkerWithId = {
         id: nanoid(5),
-        instance: L.marker(e.latlng, { draggable: true, icon }),
+        instance: L.marker(e.latlng, {
+          draggable: true,
+          icon,
+        }),
       };
 
       marker.instance.bindTooltip(marker.id, { permanent: true });
 
       /* BIND EVENTS TO MARKER */
+
+      // prevent bubbling to map
+      marker.instance.on("click", () => {});
 
       marker.instance.on("dragstart", () => {
         isDraggingRef.current = true;
@@ -95,7 +97,7 @@ function App() {
 
   // Setup leaflet
   useEffect(() => {
-    if (mapRef.current || !mapElementRef.current) {
+    if (!mapElementRef.current) {
       return;
     }
 
@@ -129,9 +131,7 @@ function App() {
     bindEvents();
 
     return function cleanup() {
-      if (mapRef.current) {
-        mapRef.current.remove();
-      }
+      map.remove();
     };
   }, []);
 
