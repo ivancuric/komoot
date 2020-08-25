@@ -1,15 +1,20 @@
-import produce from "immer";
+import produce, { Draft } from "immer";
 import L from "leaflet";
-import "leaflet/dist/leaflet.css";
 import markerImg from "leaflet/dist/images/marker-icon.png";
+import "leaflet/dist/leaflet.css";
+import { nanoid } from "nanoid";
 import React, { useEffect, useRef, useState } from "react";
 import "./App.scss";
-import { nanoid } from "nanoid";
 
 interface Marker {
   id: string;
   instance: L.Marker;
 }
+
+const icon = L.icon({
+  iconUrl: markerImg,
+  iconAnchor: [12, 40],
+});
 
 function App() {
   const mapRef = useRef<L.Map | null>(null);
@@ -19,6 +24,54 @@ function App() {
   const routeLayerRef = useRef(L.layerGroup());
 
   const [markers, setMarkers] = useState<Marker[]>([]);
+  const mutableMarkersRef = useRef<Marker[]>([]);
+
+  // ADD CLICK HANDLERS
+  function onMapClick(e: L.LeafletMouseEvent) {
+    const markerLayer = markerLayerRef.current;
+    const mutableMarkers = mutableMarkersRef.current;
+    const route = routeRef.current;
+
+    const marker: Marker = {
+      id: nanoid(),
+      instance: L.marker(e.latlng, { draggable: true, icon }),
+    };
+
+    marker.instance.on("drag", (e) => {
+      const markerCoords = mutableMarkers.map((marker) =>
+        marker.instance.getLatLng()
+      );
+
+      route.setLatLngs(markerCoords);
+
+      // console.log(markerCoords);
+
+      // const latlng: L.LatLngExpression = (e as any).latlng;
+      // const markerCoords = markers.map((marker) =>
+      //   marker.instance.getLatLng()
+      // );
+      // console.log(markers);
+      // console.log(marker.instance);
+    });
+
+    marker.instance.on("dragend", (e) => {
+      console.log(e);
+
+      setMarkers(produce((draft) => {}));
+    });
+
+    marker.instance.addTo(markerLayer);
+
+    mutableMarkers.push(marker);
+
+    setMarkers(
+      produce((draft) => {
+        draft.push(marker);
+      })
+    );
+
+    console.log(mutableMarkers);
+  }
 
   // setup leaflet
   useEffect(() => {
@@ -52,35 +105,6 @@ function App() {
     route.addTo(routeLayer);
     routeLayer.addTo(map);
     markerLayer.addTo(map);
-
-    // ADD CLICK HANDLERS
-    const onMapClick = (e: L.LeafletMouseEvent) => {
-      const icon = L.icon({
-        iconUrl: markerImg,
-        iconAnchor: [12, 40],
-      });
-
-      const marker: Marker = {
-        id: nanoid(),
-        instance: L.marker(e.latlng, { draggable: true, icon }),
-      };
-
-      marker.instance.on("drag", (e) => {
-        // const latlng: L.LatLngExpression = (e as any).latlng;
-        // const markerCoords = markers.map((marker) =>
-        //   marker.instance.getLatLng()
-        // );
-        // console.log(markers);
-        // console.log(marker.instance);
-      });
-      marker.instance.addTo(markerLayer);
-
-      setMarkers(
-        produce((draft) => {
-          draft.push(marker);
-        })
-      );
-    };
 
     map.on("click", onMapClick);
 
