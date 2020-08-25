@@ -1,6 +1,5 @@
 import produce from "immer";
 import L from "leaflet";
-import markerImg from "leaflet/dist/images/marker-icon.png";
 import "leaflet/dist/leaflet.css";
 import { nanoid } from "nanoid";
 import React, { useEffect, useRef, useState } from "react";
@@ -15,8 +14,9 @@ interface State {
   markers: MarkerWithId[];
 }
 
+// fix for the default icon
 const icon = L.icon({
-  iconUrl: markerImg,
+  iconUrl: require("leaflet/dist/images/marker-icon.png"),
   iconAnchor: [12, 40],
 });
 
@@ -24,6 +24,10 @@ function App() {
   const mapRef = useRef<L.Map | null>(null);
   const mapElementRef = useRef<HTMLDivElement>(null);
   const routeRef = useRef(L.polyline([], { color: "red" }));
+
+  /* workaround to fix a bug where click triggers after mouseup
+  while dragging a marker */
+  const isDraggingRef = useRef(false);
   const markerLayerRef = useRef(L.layerGroup());
   const routeLayerRef = useRef(L.layerGroup());
 
@@ -78,12 +82,21 @@ function App() {
     }
     // ADD MAP MARKER
     function onMapClick(e: L.LeafletMouseEvent) {
+      console.log("CLICK!");
+      if (isDraggingRef.current) {
+        return;
+      }
+
       const marker: MarkerWithId = {
         id: nanoid(5),
         instance: L.marker(e.latlng, { draggable: true, icon }),
       };
 
       marker.instance.bindTooltip(marker.id, { permanent: true });
+
+      marker.instance.on("dragstart", () => {
+        isDraggingRef.current = true;
+      });
 
       // update mutable array during dragging
       marker.instance.on("drag", () => {
@@ -106,6 +119,7 @@ function App() {
         });
 
         setMarkers(updateMarkers);
+        setTimeout(() => (isDraggingRef.current = false), 0);
       });
 
       // add the marker
@@ -146,13 +160,26 @@ function App() {
     );
   }
 
+  function deleteMarker(id: string) {
+    //immerjs.github.io/immer/docs/update-patterns#array-mutations
+    const updateMarkers = produce((draft) => {
+      const index = draft.findIndex((item: MarkerWithId) => item.id === id);
+      if (index !== -1) draft.splice(index, 1);
+    });
+
+    setMarkers(updateMarkers);
+  }
+
   return (
     <div className="App">
       <div className="sidebar">
         <button onClick={() => shuffleMarkers()}>Shuffle</button>
         <ul>
           {markers.map((marker) => (
-            <li key={marker.id}>{marker.id}</li>
+            <li key={marker.id}>
+              {marker.id}{" "}
+              <button onClick={() => deleteMarker(marker.id)}>X</button>
+            </li>
           ))}
         </ul>
       </div>
