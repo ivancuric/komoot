@@ -11,6 +11,10 @@ interface MarkerWithId {
   instance: L.Marker;
 }
 
+interface State {
+  markers: MarkerWithId[];
+}
+
 const icon = L.icon({
   iconUrl: markerImg,
   iconAnchor: [12, 40],
@@ -23,49 +27,10 @@ function App() {
   const markerLayerRef = useRef(L.layerGroup());
   const routeLayerRef = useRef(L.layerGroup());
 
-  const [updateTrigger, forceUpdate] = useState(0);
   const [markers, setMarkers] = useState<MarkerWithId[]>([]);
   const mutableMarkersRef = useRef<MarkerWithId[]>([]);
 
-  // ADD MAP MARKER
-  function onMapClick(e: L.LeafletMouseEvent) {
-    // const markerLayer = markerLayerRef.current;
-    const mutableMarkers = mutableMarkersRef.current;
-    const route = routeRef.current;
-
-    const marker: MarkerWithId = {
-      id: nanoid(5),
-      instance: L.marker(e.latlng, { draggable: true, icon }),
-    };
-
-    marker.instance.bindTooltip(marker.id, { permanent: true });
-
-    marker.instance.on("drag", () => {
-      const markerCoords = markers.map((marker) => marker.instance.getLatLng());
-      route.setLatLngs(markerCoords);
-    });
-
-    marker.instance.on("dragend", (e) => {
-      const newMarker: L.Marker = e.target;
-
-      //immerjs.github.io/immer/docs/update-patterns#array-mutations
-      const updateMarkers = produce((draft) => {
-        const index = draft.findIndex(
-          (item: MarkerWithId) => item.id === marker.id
-        );
-        if (index !== -1) draft[index].instance = newMarker;
-      });
-
-      setMarkers(updateMarkers);
-      forceUpdate((prev) => prev + 1);
-    });
-
-    setMarkers(
-      produce((draft) => {
-        draft.push(marker);
-      })
-    );
-  }
+  mutableMarkersRef.current = markers;
 
   // setup leaflet
   useEffect(() => {
@@ -100,14 +65,60 @@ function App() {
     routeLayer.addTo(map);
     markerLayer.addTo(map);
 
-    map.on("click", onMapClick);
-
     return function cleanup() {
       if (mapRef.current) {
         mapRef.current.remove();
       }
     };
-  }, [onMapClick]);
+  }, []);
+
+  useEffect(() => {
+    if (!mapRef.current) {
+      return;
+    }
+    // ADD MAP MARKER
+    function onMapClick(e: L.LeafletMouseEvent) {
+      const marker: MarkerWithId = {
+        id: nanoid(5),
+        instance: L.marker(e.latlng, { draggable: true, icon }),
+      };
+
+      marker.instance.bindTooltip(marker.id, { permanent: true });
+
+      // update mutable array during dragging
+      marker.instance.on("drag", () => {
+        const markerCoords = mutableMarkersRef.current.map((marker) =>
+          marker.instance.getLatLng()
+        );
+        routeRef.current.setLatLngs(markerCoords);
+      });
+
+      // set state when done dragging
+      marker.instance.on("dragend", (e) => {
+        const newMarker: L.Marker = e.target;
+
+        //immerjs.github.io/immer/docs/update-patterns#array-mutations
+        const updateMarkers = produce((draft) => {
+          const index = draft.findIndex(
+            (item: MarkerWithId) => item.id === marker.id
+          );
+          if (index !== -1) draft[index].instance = newMarker;
+        });
+
+        setMarkers(updateMarkers);
+      });
+
+      // add the marker
+      setMarkers(
+        produce((draft) => {
+          draft.push(marker);
+        })
+      );
+    }
+
+    // add the event listener
+    mapRef.current.on("click", onMapClick);
+  }, []);
 
   // DRAW ROUTE AND MARKERS
   useEffect(() => {
@@ -124,7 +135,7 @@ function App() {
     return () => {
       markerLayer.clearLayers();
     };
-  }, [markers, updateTrigger]);
+  }, [markers]);
 
   // DEBUG
   function shuffleMarkers() {
