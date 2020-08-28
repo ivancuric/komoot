@@ -13,7 +13,7 @@ interface MapInterface {
 function Map({ markers, setMarkers }: MapInterface) {
   const mapRef = useRef<L.Map | null>(null);
   const mapElementRef = useRef<HTMLDivElement>(null);
-  const routeRef = useRef(L.polyline([], { color: "red" }));
+  const routeRef = useRef(L.polyline([], { color: "#039be5", weight: 4 }));
 
   /**
    * workaround to fix a bug where click triggers after mouseup
@@ -90,7 +90,7 @@ function Map({ markers, setMarkers }: MapInterface) {
     [setMarkers]
   );
 
-  // Setup leaflet
+  // Setup leaflet - should have zero deps
   useEffect(() => {
     if (!mapElementRef.current) {
       return;
@@ -143,6 +143,7 @@ function Map({ markers, setMarkers }: MapInterface) {
     const route = routeRef.current;
     const markerLayer = markerLayerRef.current;
 
+    // Map has side-effects, but it's a single-pass
     const markerCoords = markers.map((marker, i) => {
       marker.instance.addTo(markerLayer);
       marker.instance.setIcon(createIcon(i + 1));
