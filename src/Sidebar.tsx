@@ -31,9 +31,9 @@ export default function Sidebar({ markers, setMarkers }: SidebarInterface) {
     <div className="sidebar">
       <button onClick={() => shuffleMarkers()}>Shuffle</button>
       <ul>
-        {markers.map((marker) => (
+        {markers.map((marker, i) => (
           <li key={marker.id}>
-            <span>{marker.id}</span>
+            <span>Waypoint {i + 1}</span>
             <button onClick={() => deleteMarker(marker.id)}>X</button>
           </li>
         ))}

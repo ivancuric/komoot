@@ -2,7 +2,7 @@ import produce from "immer";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import { nanoid } from "nanoid";
-import React, { useEffect, useRef } from "react";
+import React, { useEffect, useRef, useCallback } from "react";
 import { MarkerWithId } from "./App";
 
 interface MapInterface {
@@ -25,6 +25,70 @@ function Map({ markers, setMarkers }: MapInterface) {
 
   const mutableMarkersRef = useRef<MarkerWithId[]>([]);
   mutableMarkersRef.current = markers;
+
+  function createIcon(label: string | number) {
+    return L.divIcon({
+      className: "custom-icon",
+      iconSize: [40, 40],
+      html: `<span>${label}</span>`,
+    });
+  }
+
+  const createMarker = useCallback(
+    (latlng: L.LatLng) => {
+      const id = nanoid(5);
+
+      const marker: MarkerWithId = {
+        id: id,
+        instance: L.marker(latlng, {
+          draggable: true,
+          icon: createIcon(id),
+        }),
+      };
+
+      /* BIND EVENTS TO MARKER */
+
+      // prevent bubbling to map
+      marker.instance.on("click", () => {});
+
+      // doubleclick wokraround
+      marker.instance.on("dragstart", () => {
+        isDraggingRef.current = true;
+      });
+
+      // iterate on mutable array during dragging for live route update
+      marker.instance.on("drag", () => {
+        const markerCoords = mutableMarkersRef.current.map((marker) =>
+          marker.instance.getLatLng()
+        );
+        routeRef.current.setLatLngs(markerCoords);
+      });
+
+      // replace old marker instance with new one when done dragging
+      marker.instance.on("dragend", (e) => {
+        const newMarker: L.Marker = e.target;
+
+        //immerjs.github.io/immer/docs/update-patterns#array-mutations
+        const updateMarkers = produce((draft) => {
+          const index = draft.findIndex(
+            (item: MarkerWithId) => item.id === marker.id
+          );
+          if (index !== -1) draft[index].instance = newMarker;
+        });
+
+        setMarkers(updateMarkers);
+        setTimeout(() => (isDraggingRef.current = false), 0);
+      });
+
+      // add the marker
+      setMarkers(
+        produce((draft) => {
+          draft.push(marker);
+        })
+      );
+    },
+    [setMarkers]
+  );
 
   // Setup leaflet
   useEffect(() => {
@@ -64,61 +128,7 @@ function Map({ markers, setMarkers }: MapInterface) {
         return;
       }
 
-      const id = nanoid(5);
-      const icon = L.divIcon({
-        className: "custom-icon",
-        iconSize: [40, 40],
-        html: `<span>${id}</span>`,
-      });
-
-      const marker: MarkerWithId = {
-        id: id,
-        instance: L.marker(e.latlng, {
-          draggable: true,
-          icon,
-        }),
-      };
-
-      /* BIND EVENTS TO MARKER */
-
-      // prevent bubbling to map
-      marker.instance.on("click", () => {});
-
-      // doubleclick wokraround
-      marker.instance.on("dragstart", () => {
-        isDraggingRef.current = true;
-      });
-
-      // iterate on mutable array during dragging for live route update
-      marker.instance.on("drag", () => {
-        const markerCoords = mutableMarkersRef.current.map((marker) =>
-          marker.instance.getLatLng()
-        );
-        routeRef.current.setLatLngs(markerCoords);
-      });
-
-      // set state when done dragging
-      marker.instance.on("dragend", (e) => {
-        const newMarker: L.Marker = e.target;
-
-        //immerjs.github.io/immer/docs/update-patterns#array-mutations
-        const updateMarkers = produce((draft) => {
-          const index = draft.findIndex(
-            (item: MarkerWithId) => item.id === marker.id
-          );
-          if (index !== -1) draft[index].instance = newMarker;
-        });
-
-        setMarkers(updateMarkers);
-        setTimeout(() => (isDraggingRef.current = false), 0);
-      });
-
-      // add the marker
-      setMarkers(
-        produce((draft) => {
-          draft.push(marker);
-        })
-      );
+      createMarker(e.latlng);
     }
 
     mapRef.current?.on("click", onMapClick);
@@ -126,15 +136,16 @@ function Map({ markers, setMarkers }: MapInterface) {
     return function cleanup() {
       map.remove();
     };
-  }, [setMarkers]);
+  }, [createMarker, setMarkers]);
 
   // Draw the markers and route
   useEffect(() => {
     const route = routeRef.current;
     const markerLayer = markerLayerRef.current;
 
-    const markerCoords = markers.map((marker) => {
+    const markerCoords = markers.map((marker, i) => {
       marker.instance.addTo(markerLayer);
+      marker.instance.setIcon(createIcon(i + 1));
       return marker.instance.getLatLng();
     });
 
