@@ -10,12 +10,6 @@ interface MarkerWithId {
   instance: L.Marker;
 }
 
-// fix for the default icon
-const icon = L.icon({
-  iconUrl: require("leaflet/dist/images/marker-icon.png"),
-  iconAnchor: [12, 40],
-});
-
 function App() {
   const mapRef = useRef<L.Map | null>(null);
   const mapElementRef = useRef<HTMLDivElement>(null);
@@ -31,69 +25,7 @@ function App() {
 
   const [markers, setMarkers] = useState<MarkerWithId[]>([]);
   const mutableMarkersRef = useRef<MarkerWithId[]>([]);
-
   mutableMarkersRef.current = markers;
-
-  function bindEvents() {
-    /** Add map marker */
-    function onMapClick(e: L.LeafletMouseEvent) {
-      if (isDraggingRef.current) {
-        return;
-      }
-
-      const marker: MarkerWithId = {
-        id: nanoid(5),
-        instance: L.marker(e.latlng, {
-          draggable: true,
-          icon,
-        }),
-      };
-
-      marker.instance.bindTooltip(marker.id, { permanent: true });
-
-      /* BIND EVENTS TO MARKER */
-
-      // prevent bubbling to map
-      marker.instance.on("click", () => {});
-
-      marker.instance.on("dragstart", () => {
-        isDraggingRef.current = true;
-      });
-
-      // update mutable array during dragging for live route update
-      marker.instance.on("drag", () => {
-        const markerCoords = mutableMarkersRef.current.map((marker) =>
-          marker.instance.getLatLng()
-        );
-        routeRef.current.setLatLngs(markerCoords);
-      });
-
-      // set state when done dragging
-      marker.instance.on("dragend", (e) => {
-        const newMarker: L.Marker = e.target;
-
-        //immerjs.github.io/immer/docs/update-patterns#array-mutations
-        const updateMarkers = produce((draft) => {
-          const index = draft.findIndex(
-            (item: MarkerWithId) => item.id === marker.id
-          );
-          if (index !== -1) draft[index].instance = newMarker;
-        });
-
-        setMarkers(updateMarkers);
-        setTimeout(() => (isDraggingRef.current = false), 0);
-      });
-
-      // add the marker
-      setMarkers(
-        produce((draft) => {
-          draft.push(marker);
-        })
-      );
-    }
-
-    mapRef.current?.on("click", onMapClick);
-  }
 
   // Setup leaflet
   useEffect(() => {
@@ -134,6 +66,74 @@ function App() {
       map.remove();
     };
   }, []);
+
+  // Avoid having deps in this function
+  function bindEvents() {
+    /** Add map marker */
+    function onMapClick(e: L.LeafletMouseEvent) {
+      if (isDraggingRef.current) {
+        return;
+      }
+
+      const id = nanoid(5);
+      const icon = L.divIcon({
+        className: "custom-icon",
+        iconSize: [40, 40],
+        html: `<span>${id}</span>`,
+      });
+
+      const marker: MarkerWithId = {
+        id: id,
+        instance: L.marker(e.latlng, {
+          draggable: true,
+          icon,
+        }),
+      };
+
+      /* BIND EVENTS TO MARKER */
+
+      // prevent bubbling to map
+      marker.instance.on("click", () => {});
+
+      // doubleclick wokraround
+      marker.instance.on("dragstart", () => {
+        isDraggingRef.current = true;
+      });
+
+      // iterate on mutable array during dragging for live route update
+      marker.instance.on("drag", () => {
+        const markerCoords = mutableMarkersRef.current.map((marker) =>
+          marker.instance.getLatLng()
+        );
+        routeRef.current.setLatLngs(markerCoords);
+      });
+
+      // set state when done dragging
+      marker.instance.on("dragend", (e) => {
+        const newMarker: L.Marker = e.target;
+
+        //immerjs.github.io/immer/docs/update-patterns#array-mutations
+        const updateMarkers = produce((draft) => {
+          const index = draft.findIndex(
+            (item: MarkerWithId) => item.id === marker.id
+          );
+          if (index !== -1) draft[index].instance = newMarker;
+        });
+
+        setMarkers(updateMarkers);
+        setTimeout(() => (isDraggingRef.current = false), 0);
+      });
+
+      // add the marker
+      setMarkers(
+        produce((draft) => {
+          draft.push(marker);
+        })
+      );
+    }
+
+    mapRef.current?.on("click", onMapClick);
+  }
 
   // Draw the markers and route
   useEffect(() => {
@@ -178,7 +178,7 @@ function App() {
         <ul>
           {markers.map((marker) => (
             <li key={marker.id}>
-              {marker.id}{" "}
+              <span>{marker.id}</span>
               <button onClick={() => deleteMarker(marker.id)}>X</button>
             </li>
           ))}
