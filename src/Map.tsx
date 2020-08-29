@@ -5,12 +5,12 @@ import { nanoid } from "nanoid";
 import React, { useEffect, useRef, useCallback } from "react";
 import { MarkerWithId } from "./App";
 
-interface MapInterface {
+interface MapProps {
   markers: MarkerWithId[];
   setMarkers: React.Dispatch<React.SetStateAction<MarkerWithId[]>>;
 }
 
-function Map({ markers, setMarkers }: MapInterface) {
+export function Map({ markers, setMarkers }: MapProps) {
   const mapRef = useRef<L.Map | null>(null);
   const mapElementRef = useRef<HTMLDivElement>(null);
   const routeRef = useRef(L.polyline([], { color: "#039be5", weight: 4 }));
@@ -159,5 +159,3 @@ function Map({ markers, setMarkers }: MapInterface) {
 
   return <div className="map" ref={mapElementRef}></div>;
 }
-
-export default Map;
