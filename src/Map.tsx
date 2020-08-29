@@ -90,7 +90,7 @@ function Map({ markers, setMarkers }: MapInterface) {
     [setMarkers]
   );
 
-  // Setup leaflet - should have zero deps
+  // Setup leaflet map
   useEffect(() => {
     if (!mapElementRef.current) {
       return;

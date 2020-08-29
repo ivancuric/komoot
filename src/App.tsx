@@ -1,4 +1,4 @@
-import L from "leaflet";
+import { Marker } from "leaflet";
 import "leaflet/dist/leaflet.css";
 import React, { useState } from "react";
 import "./App.scss";
@@ -7,7 +7,7 @@ import Sidebar from "./Sidebar";
 
 export interface MarkerWithId {
   id: string;
-  instance: L.Marker;
+  instance: Marker;
 }
 
 function App() {

@@ -25,3 +25,12 @@
   font-size: 20px;
   font-weight: 700;
 }
+
+.list-item {
+  user-select: none;
+  position: relative;
+  padding: 5px;
+  margin: 5px;
+  outline: 1px solid black;
+  background: #fff;
+}

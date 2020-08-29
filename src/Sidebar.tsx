@@ -1,13 +1,20 @@
-import produce from "immer";
-import React from "react";
+import produce, { original } from "immer";
+import React, { useState } from "react";
 import { MarkerWithId } from "./App";
+import { ListItem } from "./ListItem";
 
 interface SidebarInterface {
   markers: MarkerWithId[];
   setMarkers: React.Dispatch<React.SetStateAction<MarkerWithId[]>>;
 }
 
+interface ItemRefs {
+  [key: string]: HTMLLIElement;
+}
+
 export default function Sidebar({ markers, setMarkers }: SidebarInterface) {
+  const [listItemRefs, setListItemRefs] = useState<ItemRefs>({});
+
   // DEBUG
   function shuffleMarkers() {
     setMarkers(
@@ -17,14 +24,23 @@ export default function Sidebar({ markers, setMarkers }: SidebarInterface) {
     );
   }
 
-  function deleteMarker(id: string) {
-    //immerjs.github.io/immer/docs/update-patterns#array-mutations
-    const updateMarkers = produce((draft) => {
-      const index = draft.findIndex((item: MarkerWithId) => item.id === id);
-      if (index !== -1) draft.splice(index, 1);
-    });
+  function comparePositions() {
+    const sortedIds = Object.entries(listItemRefs)
+      .sort(
+        (a, b) =>
+          a[1].getBoundingClientRect().y - b[1].getBoundingClientRect().y
+      )
+      .map(([id]) => id);
 
-    setMarkers(updateMarkers);
+    setMarkers(
+      produce((draft) => {
+        const newOrder = sortedIds.map((id) =>
+          draft.find((entry: MarkerWithId) => entry.id === id)
+        );
+
+        return newOrder;
+      })
+    );
   }
 
   return (
@@ -32,10 +48,16 @@ export default function Sidebar({ markers, setMarkers }: SidebarInterface) {
       <button onClick={() => shuffleMarkers()}>Shuffle</button>
       <ul>
         {markers.map((marker, i) => (
-          <li key={marker.id}>
-            <span>Waypoint {i + 1}</span>
-            <button onClick={() => deleteMarker(marker.id)}>X</button>
-          </li>
+          <ListItem
+            key={marker.id}
+            {...{
+              marker,
+              i,
+              setMarkers,
+              comparePositions,
+              setListItemRefs,
+            }}
+          ></ListItem>
         ))}
       </ul>
     </div>
